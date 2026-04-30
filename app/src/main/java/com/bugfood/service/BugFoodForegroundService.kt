@@ -17,17 +17,18 @@ class BugFoodForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-                return START_NOT_STICKY
-            }
-            else -> {
-                val notification = NotificationHelper.buildPersistentNotification(this)
-                startForeground(NotificationHelper.PERSISTENT_NOTIF_ID, notification)
-                Log.d(TAG, "BugFood rodando em segundo plano")
-            }
+        if (intent?.action == ACTION_STOP) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
+        try {
+            val notification = NotificationHelper.buildPersistentNotification(this)
+            startForeground(NotificationHelper.PERSISTENT_NOTIF_ID, notification)
+            Log.d(TAG, "Foreground service iniciado")
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao iniciar foreground: ${e.message}")
+            stopSelf()
         }
         return START_STICKY
     }
