@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand -->
+    <color name="bug_green">#2E7D32</color>
+    <color name="bug_green_light">#4CAF50</color>
+    <color name="food_orange">#E65100</color>
+    <color name="food_orange_light">#FF6D00</color>
+
+    <!-- Warning banner -->
+    <color name="warning_bg">#FFF3E0</color>
+    <color name="warning_text">#E65100</color>
+
+    <!-- Delete ripple -->
+    <color name="color_delete_ripple">#1AE53935</color>
+
+    <!-- Status bar -->
+    <color name="statusBarColor">#1B5E20</color>
+</resources>

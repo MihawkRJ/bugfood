@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BugFood</string>
+    <string name="accessibility_service_label">BugFood – Monitor iFood</string>
+    <string name="accessibility_description">O BugFood monitora o iFood Entregadores para capturar automaticamente nomes e códigos de pedidos, economizando tempo nas entregas.</string>
+</resources>

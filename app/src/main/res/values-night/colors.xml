@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="warning_bg">#3E2400</color>
+    <color name="warning_text">#FFB74D</color>
+    <color name="statusBarColor">#0A1F0A</color>
+</resources>
