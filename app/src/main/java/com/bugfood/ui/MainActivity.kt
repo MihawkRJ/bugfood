@@ -4,8 +4,6 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -18,15 +16,12 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.view.isVisible
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bugfood.R
 import com.bugfood.database.DeliveryEntity
 import com.bugfood.databinding.ActivityMainBinding
-import com.bugfood.service.BugFoodAccessibilityService
 import com.bugfood.service.BugFoodForegroundService
 import com.bugfood.utils.NotificationHelper
-import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -45,8 +40,7 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupButtons()
         observeData()
-        startForegroundService()
-        checkAccessibilityOnResume()
+        startForegroundServiceSafe()
     }
 
     override fun onResume() {
@@ -54,7 +48,6 @@ class MainActivity : AppCompatActivity() {
         updateServiceStatus()
     }
 
-    // ── RecyclerView ──────────────────────────────────────────────
     private fun setupRecyclerView() {
         adapter = DeliveryAdapter(
             onDelete = { entity -> confirmDelete(entity) },
@@ -67,7 +60,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Observers ─────────────────────────────────────────────────
     private fun observeData() {
         viewModel.allDeliveries.observe(this) { list ->
             adapter.submitList(list)
@@ -77,67 +69,59 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ── Buttons ───────────────────────────────────────────────────
     private fun setupButtons() {
         binding.fabCheck.setOnClickListener {
             if (!isAccessibilityEnabled()) {
                 openAccessibilitySettings()
             } else {
-                Toast.makeText(this, "✅ Serviço ativo e monitorando!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "✅ Serviço ativo!", Toast.LENGTH_SHORT).show()
             }
         }
-
         binding.btnEnableAccessibility.setOnClickListener {
             openAccessibilitySettings()
         }
     }
 
-    // ── Service Management ────────────────────────────────────────
-    private fun startForegroundService() {
-        val intent = Intent(this, BugFoodForegroundService::class.java).apply {
-            action = BugFoodForegroundService.ACTION_START
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
+    private fun startForegroundServiceSafe() {
+        try {
+            val intent = Intent(this, BugFoodForegroundService::class.java).apply {
+                action = BugFoodForegroundService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        } catch (e: Exception) {
+            // Ignora se falhar — acessibilidade é o serviço principal
         }
     }
 
     private fun isAccessibilityEnabled(): Boolean {
-        val am = getSystemService(Context.ACCESSIBILITY_SERVICE)
-                as android.view.accessibility.AccessibilityManager
-        val enabledServices = am.getEnabledAccessibilityServiceList(
-            AccessibilityServiceInfo.FEEDBACK_ALL_MASK
-        )
-        return enabledServices.any {
-            it.resolveInfo.serviceInfo.packageName == packageName
+        return try {
+            val am = getSystemService(Context.ACCESSIBILITY_SERVICE)
+                    as android.view.accessibility.AccessibilityManager
+            val enabledServices = am.getEnabledAccessibilityServiceList(
+                AccessibilityServiceInfo.FEEDBACK_ALL_MASK
+            )
+            enabledServices.any { it.resolveInfo.serviceInfo.packageName == packageName }
+        } catch (e: Exception) {
+            false
         }
     }
 
     private fun updateServiceStatus() {
         val enabled = isAccessibilityEnabled()
-        binding.apply {
-            chipStatus.text = if (enabled) "🟢 Ativo" else "🔴 Inativo"
-            btnEnableAccessibility.isVisible = !enabled
-            bannerAccessibility.isVisible = !enabled
-        }
-    }
-
-    private fun checkAccessibilityOnResume() {
-        updateServiceStatus()
+        binding.chipStatus.text = if (enabled) "🟢 Ativo" else "🔴 Inativo"
+        binding.btnEnableAccessibility.isVisible = !enabled
+        binding.bannerAccessibility.isVisible = !enabled
     }
 
     private fun openAccessibilitySettings() {
         startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        Toast.makeText(
-            this,
-            "Ative o BugFood na lista de Acessibilidade",
-            Toast.LENGTH_LONG
-        ).show()
+        Toast.makeText(this, "Ative o BugFood na lista de Acessibilidade", Toast.LENGTH_LONG).show()
     }
 
-    // ── Dialogs ───────────────────────────────────────────────────
     private fun confirmDelete(entity: DeliveryEntity) {
         AlertDialog.Builder(this)
             .setTitle("Excluir registro")
@@ -155,7 +139,6 @@ class MainActivity : AppCompatActivity() {
             imeOptions = EditorInfo.IME_ACTION_DONE
             setPadding(48, 24, 48, 24)
         }
-
         AlertDialog.Builder(this)
             .setTitle("Código de entrega\n${entity.customerName}")
             .setView(input)
@@ -170,7 +153,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // ── Menu ──────────────────────────────────────────────────────
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.main_menu, menu)
         return true
@@ -180,22 +162,18 @@ class MainActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.action_toggle_theme -> {
                 val current = AppCompatDelegate.getDefaultNightMode()
-                if (current == AppCompatDelegate.MODE_NIGHT_YES) {
-                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
-                    getSharedPreferences("bugfood_prefs", MODE_PRIVATE)
-                        .edit().putInt("theme", AppCompatDelegate.MODE_NIGHT_NO).apply()
-                } else {
-                    AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
-                    getSharedPreferences("bugfood_prefs", MODE_PRIVATE)
-                        .edit().putInt("theme", AppCompatDelegate.MODE_NIGHT_YES).apply()
-                }
+                val newMode = if (current == AppCompatDelegate.MODE_NIGHT_YES)
+                    AppCompatDelegate.MODE_NIGHT_NO else AppCompatDelegate.MODE_NIGHT_YES
+                AppCompatDelegate.setDefaultNightMode(newMode)
+                getSharedPreferences("bugfood_prefs", MODE_PRIVATE)
+                    .edit().putInt("theme", newMode).apply()
                 true
             }
             R.id.action_clear_all -> {
                 AlertDialog.Builder(this)
                     .setTitle("Limpar banco de dados")
-                    .setMessage("Isso vai apagar TODOS os ${adapter.itemCount} registros. Confirmar?")
-                    .setPositiveButton("Limpar tudo") { _, _ ->
+                    .setMessage("Apagar todos os ${adapter.itemCount} registros?")
+                    .setPositiveButton("Limpar") { _, _ ->
                         viewModel.deleteAll()
                         Toast.makeText(this, "Banco limpo!", Toast.LENGTH_SHORT).show()
                     }
